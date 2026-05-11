@@ -31,6 +31,10 @@ htmlcov/
 .vscode/
 .idea/
 
+# Claude Code
+.claude/skills/
+.claude/settings.local.json
+
 # Project-specific outputs (optional; remove if you want these committed)
 # figures/
 

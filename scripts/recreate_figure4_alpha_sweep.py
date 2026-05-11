@@ -86,8 +86,6 @@ def main() -> None:
 
     graph = pgd2.construct_pseudotime_graph_from_table(df, adata=adata, k=args.k)
 
-    # Pseudotime for coloring
-    # Use a selector instead of substring matching hidden inside the implementation.
     pt = pgd2.compute_pseudotime_from_table(
         df,
         adata=adata,
@@ -128,6 +126,8 @@ def main() -> None:
             )
             branch_anchors[str(branch_name)] = cell_ids[anchor_idx].tolist()
 
+    id_to_row = {str(cid): i for i, cid in enumerate(adata.obs_names)}
+
     fig, axes = plt.subplots(4, 4, figsize=(12, 12), constrained_layout=True)
     axes = axes.ravel()
 
@@ -143,7 +143,6 @@ def main() -> None:
         emb = reducer.fit_transform(Xs)
 
         if args.show_edges and branch_anchors:
-            id_to_row = {str(cid): i for i, cid in enumerate(adata.obs_names)}
             for _, anchors in branch_anchors.items():
                 rows = [id_to_row.get(a) for a in anchors]
                 rows = [r for r in rows if r is not None]
