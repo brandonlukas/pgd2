@@ -12,6 +12,7 @@ Dijkstra from the root, and min-max scales distances to [0, 1].
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Callable
 
 import numpy as np
@@ -79,6 +80,15 @@ def compute_pseudotime_from_table(
     ).ravel()
 
     finite = np.isfinite(dist)
+    n_unreachable = int((~finite).sum())
+    if n_unreachable:
+        warnings.warn(
+            f"{n_unreachable}/{n} cells unreachable from root '{root_cell}'; "
+            "their pseudotime is clamped to 1.0. The directed graph likely has "
+            "multiple sources (e.g. tip-to-tip branches) — consider reorienting "
+            "branches so they all flow outward from a single root.",
+            stacklevel=2,
+        )
     if not finite.any():
         return np.zeros(n, dtype=float)
     dmin = float(dist[finite].min())

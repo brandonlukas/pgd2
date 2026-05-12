@@ -1,8 +1,15 @@
+import warnings
+
 import numpy as np
 import pytest
 import scipy.sparse as sp
 
 import pgd2
+
+
+class DummyAdata:
+    def __init__(self, obs_names):
+        self.obs_names = obs_names
 
 
 @pytest.fixture
@@ -11,10 +18,6 @@ def tiny_graph():
 
 
 def test_construct_graph_matches_adata_order():
-    class DummyAdata:
-        def __init__(self, obs_names):
-            self.obs_names = obs_names
-
     adata = DummyAdata(["a", "b", "c", "d"])
     branches = {"b1": ["b", "c", "d"]}
 
@@ -114,10 +117,6 @@ def test_construct_pseudotime_graph_rejects_invalid_k():
 
 
 def test_construct_pseudotime_graph_reports_unknown_cell():
-    class DummyAdata:
-        def __init__(self, obs_names):
-            self.obs_names = obs_names
-
     adata = DummyAdata(["a", "b"])
     with pytest.raises(KeyError, match="missing"):
         pgd2.construct_pseudotime_graph({"b1": ["a", "missing"]}, adata=adata, k=1)
@@ -137,10 +136,6 @@ def test_transition_matrix_is_row_stochastic():
 
 
 def test_compute_pseudotime_from_table_respects_backbone_mask():
-    class DummyAdata:
-        def __init__(self, obs_names):
-            self.obs_names = obs_names
-
     # Two branches assign different pseudotime values per cell.
     # The mask should constrain root selection to the backbone rows.
     table = {
@@ -153,6 +148,31 @@ def test_compute_pseudotime_from_table_respects_backbone_mask():
     pt = pgd2.compute_pseudotime_from_table(table, adata=adata, backbone_mask=backbone_mask)
     assert pt.shape == (2,)
     assert float(pt[0]) <= float(pt[1])
+
+
+def test_compute_pseudotime_from_table_warns_on_unreachable():
+    table = {
+        "branch": ["b1", "b1", "b2", "b2"],
+        "pseudotime": [0.0, 1.0, 0.0, 1.0],
+        "cell_id": ["c1", "c2", "c3", "c4"],
+    }
+    adata = DummyAdata(["c1", "c2", "c3", "c4"])
+    with pytest.warns(UserWarning, match="unreachable from root"):
+        pt = pgd2.compute_pseudotime_from_table(table, adata=adata, root_cell="c1")
+    assert float(pt[2]) == 1.0
+    assert float(pt[3]) == 1.0
+
+
+def test_compute_pseudotime_from_table_no_warning_when_all_reachable():
+    table = {
+        "branch": ["b1", "b1", "b1"],
+        "pseudotime": [0.0, 0.5, 1.0],
+        "cell_id": ["c1", "c2", "c3"],
+    }
+    adata = DummyAdata(["c1", "c2", "c3"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        pgd2.compute_pseudotime_from_table(table, adata=adata, root_cell="c1")
 
 
 def test_diffuse_features_accepts_property_style_kernel():
