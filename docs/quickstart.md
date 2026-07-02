@@ -57,19 +57,3 @@ any matrix from `adata.obsm` directly:
 graph = pgd2.construct_pseudotime_graph(branches, adata=adata, k=50)
 X_smooth = pgd2.diffuse_features(adata.obsm["X_pca"], graph, alpha=0.5, t=1)
 ```
-
-## Reproducing Figure 4
-
-The alpha-sweep figure from the paper can be regenerated with the bundled script
-(requires the `viz` extra):
-
-```bash
-python scripts/recreate_figure4_alpha_sweep.py \
-  --h5ad data/GSE203244_processed_noX.h5ad \
-  --lamian data/lamian_nc_5.tsv \
-  --show-edges \
-  --out figures/figure4_alpha_sweep.png
-```
-
-The faint lines drawn by `--show-edges` are sparse branch-path traces (anchors
-along each branch connected in order), shown for visual guidance only.

@@ -27,11 +27,11 @@ may be a pandas `DataFrame` or a dict of arrays.
 
 When a cell appears on several branches and you want a single pseudotime value
 per cell (for visualization or downstream analysis), use
-`compute_pseudotime_from_table`. This is an **auxiliary** utility — it is not part
+`aggregate_pseudotime_from_table`. This is an **auxiliary** utility — it is not part
 of the PGD paper method and is not required by `diffuse_features`.
 
 ```python
-pt = pgd2.compute_pseudotime_from_table(
+pt = pgd2.aggregate_pseudotime_from_table(
     df,
     adata=adata,
     backbone_selector=lambda b: str(b).startswith("backbone"),

@@ -12,11 +12,11 @@ from .graph import (
     construct_pseudotime_graph,
     construct_pseudotime_graph_from_table,
 )
-from .pseudotime import compute_pseudotime_from_table
+from .pseudotime import aggregate_pseudotime_from_table
 
 __all__ = [
     "PseudotimeGraph",
-    "compute_pseudotime_from_table",
+    "aggregate_pseudotime_from_table",
     "construct_pseudotime_graph",
     "construct_pseudotime_graph_from_table",
     "diffuse_features",

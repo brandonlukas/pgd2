@@ -8,12 +8,9 @@ A lightweight Python implementation of **Pseudotime Graph Diffusion (PGD)** as d
 pip install -e .
 ```
 
-Optional integrations:
-
-```bash
-pip install -e ".[scverse]"   # AnnData helpers
-pip install -e ".[viz]"       # plotting/UMAP for figure recreation
-```
+`pgd2` depends only on NumPy and SciPy. It interoperates with AnnData and pandas
+by duck typing, so if you want those (or plotting libraries), install them
+yourself — `pgd2` will not pull them in.
 
 ## Quickstart
 
@@ -58,7 +55,7 @@ graph = pgd2.construct_pseudotime_graph_from_table(df, adata=adata, k=50)
 If each cell appears on multiple branches and you want a single canonical pseudotime per cell (auxiliary; not paper-method):
 
 ```python
-pt = pgd2.compute_pseudotime_from_table(
+pt = pgd2.aggregate_pseudotime_from_table(
     df,
     adata=adata,
     backbone_selector=lambda b: str(b).startswith("backbone"),
@@ -66,18 +63,6 @@ pt = pgd2.compute_pseudotime_from_table(
 ```
 
 This builds a directed graph, runs unweighted Dijkstra from a backbone-rooted cell, and min-max scales to `[0, 1]`.
-
-## Reproducing Figure 4
-
-```bash
-python scripts/recreate_figure4_alpha_sweep.py \
-  --h5ad data/GSE203244_processed_noX.h5ad \
-  --lamian data/lamian_nc_5.tsv \
-  --show-edges \
-  --out figures/figure4_alpha_sweep.png
-```
-
-The faint lines with `--show-edges` are sparse branch path traces (anchors along each branch connected in order), shown for visual guidance.
 
 ## Documentation
 
@@ -97,5 +82,5 @@ Public exports (see docstrings via `help(pgd2.<name>)`):
 - `pgd2.PseudotimeGraph`
 - `pgd2.construct_pseudotime_graph`
 - `pgd2.construct_pseudotime_graph_from_table`
-- `pgd2.compute_pseudotime_from_table`
+- `pgd2.aggregate_pseudotime_from_table`
 - `pgd2.diffuse_features`

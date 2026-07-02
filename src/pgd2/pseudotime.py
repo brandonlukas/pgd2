@@ -21,7 +21,7 @@ from scipy.sparse.csgraph import dijkstra
 from .graph import _column, _pairs_to_csr, _table_to_forward_pairs
 
 
-def compute_pseudotime_from_table(
+def aggregate_pseudotime_from_table(
     table: Any,
     *,
     adata: Any,

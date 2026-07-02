@@ -135,7 +135,7 @@ def test_transition_matrix_is_row_stochastic():
     np.testing.assert_allclose(row_sums, np.ones(g.n_nodes))
 
 
-def test_compute_pseudotime_from_table_respects_backbone_mask():
+def test_aggregate_pseudotime_from_table_respects_backbone_mask():
     # Two branches assign different pseudotime values per cell.
     # The mask should constrain root selection to the backbone rows.
     table = {
@@ -145,12 +145,12 @@ def test_compute_pseudotime_from_table_respects_backbone_mask():
     }
     adata = DummyAdata(["c1", "c2"])
     backbone_mask = np.array([True, True, False, False])
-    pt = pgd2.compute_pseudotime_from_table(table, adata=adata, backbone_mask=backbone_mask)
+    pt = pgd2.aggregate_pseudotime_from_table(table, adata=adata, backbone_mask=backbone_mask)
     assert pt.shape == (2,)
     assert float(pt[0]) <= float(pt[1])
 
 
-def test_compute_pseudotime_from_table_warns_on_unreachable():
+def test_aggregate_pseudotime_from_table_warns_on_unreachable():
     table = {
         "branch": ["b1", "b1", "b2", "b2"],
         "pseudotime": [0.0, 1.0, 0.0, 1.0],
@@ -158,12 +158,12 @@ def test_compute_pseudotime_from_table_warns_on_unreachable():
     }
     adata = DummyAdata(["c1", "c2", "c3", "c4"])
     with pytest.warns(UserWarning, match="unreachable from root"):
-        pt = pgd2.compute_pseudotime_from_table(table, adata=adata, root_cell="c1")
+        pt = pgd2.aggregate_pseudotime_from_table(table, adata=adata, root_cell="c1")
     assert float(pt[2]) == 1.0
     assert float(pt[3]) == 1.0
 
 
-def test_compute_pseudotime_from_table_no_warning_when_all_reachable():
+def test_aggregate_pseudotime_from_table_no_warning_when_all_reachable():
     table = {
         "branch": ["b1", "b1", "b1"],
         "pseudotime": [0.0, 0.5, 1.0],
@@ -172,7 +172,7 @@ def test_compute_pseudotime_from_table_no_warning_when_all_reachable():
     adata = DummyAdata(["c1", "c2", "c3"])
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        pgd2.compute_pseudotime_from_table(table, adata=adata, root_cell="c1")
+        pgd2.aggregate_pseudotime_from_table(table, adata=adata, root_cell="c1")
 
 
 def test_diffuse_features_accepts_property_style_kernel():

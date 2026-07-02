@@ -11,7 +11,7 @@ The public API consists of five symbols, all importable from the top-level
    PseudotimeGraph
    construct_pseudotime_graph
    construct_pseudotime_graph_from_table
-   compute_pseudotime_from_table
+   aggregate_pseudotime_from_table
    diffuse_features
 ```
 
@@ -35,5 +35,5 @@ The public API consists of five symbols, all importable from the top-level
 ## Pseudotime aggregation
 
 ```{eval-rst}
-.. autofunction:: pgd2.compute_pseudotime_from_table
+.. autofunction:: pgd2.aggregate_pseudotime_from_table
 ```
