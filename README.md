@@ -79,6 +79,17 @@ python scripts/recreate_figure4_alpha_sweep.py \
 
 The faint lines with `--show-edges` are sparse branch path traces (anchors along each branch connected in order), shown for visual guidance.
 
+## Documentation
+
+Full documentation is built with Sphinx and hosted on Read the Docs. To build it
+locally:
+
+```bash
+pip install -r docs/requirements.txt
+python -m sphinx -b html docs docs/_build/html
+# open docs/_build/html/index.html
+```
+
 ## API surface
 
 Public exports (see docstrings via `help(pgd2.<name>)`):

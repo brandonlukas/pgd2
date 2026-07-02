@@ -21,6 +21,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Sphinx docs build
+docs/_build/
+
 # Jupyter
 .ipynb_checkpoints/
 
