@@ -1,30 +1,18 @@
 from __future__ import annotations
 
-from typing import Protocol, TypeVar
+from typing import Any
 
 import numpy as np
 import scipy.sparse as sp
 
-from .graph import PseudotimeGraph
-
-FeatureMatrix = TypeVar("FeatureMatrix", np.ndarray, sp.spmatrix)
-
-
-class _HasTransitionMatrix(Protocol):
-    @property
-    def transition_matrix(self) -> np.ndarray | sp.spmatrix: ...
-
-
-Transition = PseudotimeGraph | _HasTransitionMatrix | np.ndarray | sp.spmatrix
-
 
 def diffuse_features(
-    X: FeatureMatrix,
-    transition: Transition,
+    X: Any,
+    transition: Any,
     *,
     alpha: float = 0.5,
     t: int = 1,
-) -> FeatureMatrix:
+) -> Any:
     """Lazy random-walk diffusion of a feature matrix.
 
         X <- (1 - alpha) * X + alpha * (P @ X),  repeated t times.

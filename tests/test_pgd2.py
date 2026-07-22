@@ -12,23 +12,34 @@ class DummyAdata:
         self.obs_names = obs_names
 
 
+def graph_from_branch(cells, *, k=1, adata=None):
+    """Build a graph from one branch of ordered cells (pseudotime = position)."""
+    table = {
+        "branch": ["b1"] * len(cells),
+        "pseudotime": list(range(len(cells))),
+        "cell_id": list(cells),
+    }
+    return pgd2.construct_pseudotime_graph_from_table(table, k=k, adata=adata)
+
+
+def node_index(g):
+    return {cid: i for i, cid in enumerate(g.node_ids)}
+
+
 @pytest.fixture
 def tiny_graph():
-    return pgd2.construct_pseudotime_graph({"b1": ["c1", "c2"]}, k=1)
+    return graph_from_branch(["c1", "c2"], k=1)
 
 
 def test_construct_graph_matches_adata_order():
     adata = DummyAdata(["a", "b", "c", "d"])
-    branches = {"b1": ["b", "c", "d"]}
-
-    g = pgd2.construct_pseudotime_graph(branches, adata=adata, k=1)
+    g = graph_from_branch(["b", "c", "d"], k=1, adata=adata)
     assert g.node_ids == tuple(adata.obs_names)
     assert g.adjacency.shape == (4, 4)
 
 
 def test_diffusion_runs_dense_and_sparse():
-    branches = {"b1": ["c1", "c2", "c3", "c4"]}
-    g = pgd2.construct_pseudotime_graph(branches, k=1)
+    g = graph_from_branch(["c1", "c2", "c3", "c4"], k=1)
     P = g.transition_matrix
 
     X = np.arange(g.n_nodes * 2, dtype=float).reshape(g.n_nodes, 2)
@@ -47,23 +58,18 @@ def test_diffusion_runs_dense_and_sparse():
 
 
 def test_construct_graph_from_table_preserves_ties():
-    class DummyTable(dict):
-        pass
-
     # Two cells share pseudotime=0; we should not have to arbitrarily order them.
-    table = DummyTable(
-        {
-            "branch": ["b1", "b1", "b1"],
-            "pseudotime": [0, 0, 1],
-            "cell_id": ["c1", "c2", "c3"],
-        }
-    )
+    table = {
+        "branch": ["b1", "b1", "b1"],
+        "pseudotime": [0, 0, 1],
+        "cell_id": ["c1", "c2", "c3"],
+    }
 
     g = pgd2.construct_pseudotime_graph_from_table(table, k=1)
     A = g.adjacency.tocsr()
+    i = node_index(g)
 
     # c1,c2 should connect to c3 (both directions by default)
-    i = g.index()
     assert A[i["c1"], i["c3"]] != 0
     assert A[i["c2"], i["c3"]] != 0
     assert A[i["c3"], i["c1"]] != 0
@@ -72,24 +78,6 @@ def test_construct_graph_from_table_preserves_ties():
     # no forced tie-breaking edge between c1 and c2 by default
     assert A[i["c1"], i["c2"]] == 0
     assert A[i["c2"], i["c1"]] == 0
-
-
-def test_construct_graph_from_table_delta_only():
-    table = {
-        "branch": ["b1", "b1", "b1"],
-        "pseudotime": [0.0, 0.2, 1.0],
-        "cell_id": ["c1", "c2", "c3"],
-    }
-
-    # delta connects c1<->c2 but not to c3
-    g = pgd2.construct_pseudotime_graph_from_table(table, k=None, delta=0.25)
-    A = g.adjacency.tocsr()
-    i = g.index()
-
-    assert A[i["c1"], i["c2"]] != 0
-    assert A[i["c2"], i["c1"]] != 0
-    assert A[i["c1"], i["c3"]] == 0
-    assert A[i["c3"], i["c1"]] == 0
 
 
 @pytest.mark.parametrize("alpha", [-0.1, 1.1])
@@ -111,41 +99,38 @@ def test_diffuse_features_rejects_shape_mismatch(tiny_graph):
         pgd2.diffuse_features(X, tiny_graph, alpha=0.5, t=1)
 
 
-def test_construct_pseudotime_graph_rejects_invalid_k():
+def test_construct_graph_rejects_invalid_k():
+    table = {"branch": ["b1", "b1"], "pseudotime": [0, 1], "cell_id": ["c1", "c2"]}
     with pytest.raises(ValueError, match="k must be"):
-        pgd2.construct_pseudotime_graph({"b1": ["c1", "c2"]}, k=0)
+        pgd2.construct_pseudotime_graph_from_table(table, k=0)
 
 
-def test_construct_pseudotime_graph_reports_unknown_cell():
+def test_construct_graph_reports_unknown_cell():
     adata = DummyAdata(["a", "b"])
+    table = {"branch": ["b1", "b1"], "pseudotime": [0, 1], "cell_id": ["a", "missing"]}
     with pytest.raises(KeyError, match="missing"):
-        pgd2.construct_pseudotime_graph({"b1": ["a", "missing"]}, adata=adata, k=1)
-
-
-def test_construct_pseudotime_graph_from_table_requires_k_or_delta():
-    table = {"branch": ["b1"], "pseudotime": [0.0], "cell_id": ["c1"]}
-    with pytest.raises(ValueError, match="k or delta"):
-        pgd2.construct_pseudotime_graph_from_table(table, k=None, delta=None)
+        pgd2.construct_pseudotime_graph_from_table(table, adata=adata)
 
 
 def test_transition_matrix_is_row_stochastic():
-    g = pgd2.construct_pseudotime_graph({"b1": ["c1", "c2", "c3"]}, k=1)
+    g = graph_from_branch(["c1", "c2", "c3"], k=1)
     P = g.transition_matrix
     row_sums = np.asarray(P.sum(axis=1)).ravel()
     np.testing.assert_allclose(row_sums, np.ones(g.n_nodes))
 
 
-def test_aggregate_pseudotime_from_table_respects_backbone_mask():
+def test_aggregate_pseudotime_from_table_respects_backbone_selector():
     # Two branches assign different pseudotime values per cell.
-    # The mask should constrain root selection to the backbone rows.
+    # The selector should constrain root selection to the backbone rows.
     table = {
         "branch": ["backbone", "backbone", "b1", "b1"],
         "pseudotime": [0.0, 1.0, 100.0, 101.0],
         "cell_id": ["c1", "c2", "c1", "c2"],
     }
     adata = DummyAdata(["c1", "c2"])
-    backbone_mask = np.array([True, True, False, False])
-    pt = pgd2.aggregate_pseudotime_from_table(table, adata=adata, backbone_mask=backbone_mask)
+    pt = pgd2.aggregate_pseudotime_from_table(
+        table, adata=adata, backbone_selector=lambda b: b == "backbone"
+    )
     assert pt.shape == (2,)
     assert float(pt[0]) <= float(pt[1])
 
@@ -178,7 +163,7 @@ def test_aggregate_pseudotime_from_table_no_warning_when_all_reachable():
 def test_diffuse_features_accepts_property_style_kernel():
     """CellRank-style kernels expose `transition_matrix` as a property, not a method."""
 
-    g = pgd2.construct_pseudotime_graph({"b1": ["c1", "c2", "c3"]}, k=1)
+    g = graph_from_branch(["c1", "c2", "c3"], k=1)
 
     class PropertyKernel:
         def __init__(self, P):
@@ -193,3 +178,24 @@ def test_diffuse_features_accepts_property_style_kernel():
     Xs_kernel = pgd2.diffuse_features(X, kernel, alpha=0.5, t=2)
     Xs_graph = pgd2.diffuse_features(X, g, alpha=0.5, t=2)
     np.testing.assert_allclose(Xs_kernel, Xs_graph)
+
+
+def test_dendrogram_from_table_derives_trunk_and_split():
+    # two lineages A,B share a trunk (cells in both), then each has its own branch
+    table = {
+        "branch": ["A", "A", "A", "A", "B", "B", "B", "B"],
+        "cell_id": ["c0", "c1", "c2", "c3", "c0", "c1", "c4", "c5"],
+    }
+    pt = {"c0": 0.0, "c1": 0.3, "c2": 0.7, "c3": 1.0, "c4": 0.7, "c5": 0.9}
+    d = pgd2.dendrogram_from_table(table, pseudotime=pt, jitter=0.0, jitter_push=0.0, seed=0)
+    trunk = ("A", "B")
+    assert set(d.segment_x) == {trunk, ("A",), ("B",)}
+    # leaves spread to 1 and 2, trunk sits at their mean
+    assert {d.segment_x[("A",)], d.segment_x[("B",)]} == {1.0, 2.0}
+    assert d.segment_x[trunk] == 1.5
+    # y is pseudotime; trunk cell c0 at its trunk x
+    i0 = d.cell_ids.index("c0")
+    assert d.coords[i0, 1] == 0.0 and d.coords[i0, 0] == 1.5
+    assert d.cell_segments[i0] == trunk
+    # skeleton starts at the trunk root (pt 0) and squares off at the branchpoint
+    assert (d.lines[:, 1].min() == 0.0) and (0.3 in d.lines[:, 1])

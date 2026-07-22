@@ -29,16 +29,14 @@ def aggregate_pseudotime_from_table(
     pseudotime_col: str = "pseudotime",
     cell_col: str = "cell_id",
     root_cell: str | None = None,
-    backbone_mask: np.ndarray | None = None,
     backbone_selector: Callable[[Any], bool] | None = None,
     k: int = 1,
-    delta: float | None = None,
 ) -> np.ndarray:
     """Compute one canonical pseudotime value per cell from a multi-branch table.
 
     Pseudotime is returned in ``adata.obs_names`` order. Root selection priority:
     explicit ``root_cell`` → backbone row with minimum pseudotime
-    (via ``backbone_mask`` or ``backbone_selector``) → globally minimum-pseudotime row.
+    (via ``backbone_selector``) → globally minimum-pseudotime row.
     """
 
     if adata is None:
@@ -51,7 +49,6 @@ def aggregate_pseudotime_from_table(
         cell_col=cell_col,
         adata=adata,
         k=k,
-        delta=delta,
     )
     A_dir = _pairs_to_csr(n, pairs, symmetric=False)
 
@@ -59,12 +56,14 @@ def aggregate_pseudotime_from_table(
     cell_vals = _column(table, cell_col)
 
     if root_cell is None:
-        mask = _backbone_mask(table, branch_col, backbone_mask, backbone_selector, len(pt_vals))
-        if mask is not None and mask.any():
-            cand = np.where(mask)[0]
-            root_row = cand[int(np.nanargmin(pt_vals[cand]))]
-        else:
-            root_row = int(np.nanargmin(pt_vals))
+        cand = np.arange(len(pt_vals))
+        if backbone_selector is not None:
+            mask = np.fromiter(
+                (bool(backbone_selector(b)) for b in _column(table, branch_col)), dtype=bool
+            )
+            if mask.any():  # restrict root to backbone rows; fall back to all if none match
+                cand = np.where(mask)[0]
+        root_row = int(cand[np.nanargmin(pt_vals[cand])])
         root_cell = str(cell_vals[root_row])
 
     idx_map = {cid: i for i, cid in enumerate(node_ids_t)}
@@ -99,27 +98,3 @@ def aggregate_pseudotime_from_table(
         pt = (dist - dmin) / (dmax - dmin)
     pt[~finite] = 1.0
     return pt
-
-
-def _backbone_mask(
-    table: Any,
-    branch_col: str,
-    backbone_mask: np.ndarray | None,
-    backbone_selector: Callable[[Any], bool] | None,
-    n_rows: int,
-) -> np.ndarray | None:
-    if backbone_mask is not None:
-        mask = np.asarray(backbone_mask, dtype=bool).ravel()
-        if mask.shape[0] != n_rows:
-            raise ValueError(
-                "backbone_mask must be the same length as the number of table rows"
-            )
-        return mask
-    if backbone_selector is not None:
-        branch_vals = _column(table, branch_col)
-        return np.fromiter(
-            (bool(backbone_selector(b)) for b in branch_vals),
-            dtype=bool,
-            count=branch_vals.shape[0],
-        )
-    return None

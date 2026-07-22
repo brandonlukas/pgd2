@@ -1,14 +1,14 @@
 """Pseudotime graph construction and the row-stochastic transition operator.
 
 A pseudotime graph connects cells that are close along an inferred trajectory.
-Two constructors are provided: one from already-ordered cells per branch
-(PGD paper Eq. 1) and one from a long-form (branch, pseudotime, cell_id) table
-that handles ties on pseudotime values.
+It is built from a long-form (branch, pseudotime, cell_id) table, connecting
+cells within a sliding pseudotime window per branch (PGD paper Eq. 1) while
+handling ties on pseudotime values.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any
@@ -33,9 +33,6 @@ class PseudotimeGraph:
     def n_nodes(self) -> int:
         return len(self.node_ids)
 
-    def index(self) -> dict[str, int]:
-        return {cid: i for i, cid in enumerate(self.node_ids)}
-
     @cached_property
     def transition_matrix(self) -> sp.csr_matrix:
         """Row-stochastic random-walk matrix P = D^{-1} A.
@@ -54,42 +51,6 @@ class PseudotimeGraph:
         return P
 
 
-def construct_pseudotime_graph(
-    branches: Mapping[str, Sequence[str]],
-    *,
-    adata: Any = None,
-    k: int = 50,
-) -> PseudotimeGraph:
-    """Build a pseudotime graph from already-ordered cells per branch (PGD Eq. 1).
-
-    Within each branch, every cell connects to the 2k cells within window radius k.
-    """
-
-    if k < 1:
-        raise ValueError("k must be >= 1")
-
-    node_ids = _resolve_node_ids(adata, [c for cells in branches.values() for c in cells])
-    node_ids_t = tuple(node_ids)
-    idx = {cid: i for i, cid in enumerate(node_ids_t)}
-    n = len(node_ids_t)
-
-    pairs: list[tuple[np.ndarray, np.ndarray]] = []
-    for name, cells in branches.items():
-        if len(cells) <= 1:
-            continue
-        try:
-            br = np.fromiter((idx[c] for c in cells), dtype=np.int64)
-        except KeyError as e:
-            raise KeyError(
-                f"Cell '{e.args[0]}' from branch '{name}' is not in node_ids "
-                "(check adata.obs_names if provided)"
-            ) from None
-        for off in range(1, min(k, br.size - 1) + 1):
-            pairs.append((br[:-off], br[off:]))
-
-    return PseudotimeGraph(node_ids=node_ids_t, adjacency=_pairs_to_csr(n, pairs, symmetric=True))
-
-
 def construct_pseudotime_graph_from_table(
     table: Any,
     *,
@@ -97,15 +58,13 @@ def construct_pseudotime_graph_from_table(
     pseudotime_col: str = "pseudotime",
     cell_col: str = "cell_id",
     adata: Any = None,
-    k: int | None = 50,
-    delta: float | None = None,
+    k: int = 50,
 ) -> PseudotimeGraph:
     """Build a pseudotime graph from a long-form (branch, pseudotime, cell_id) table.
 
     Within each branch, cells are grouped by identical pseudotime values (ties)
-    and pseudotime levels are connected when within ``k`` levels or within
-    pseudotime-value distance ``delta`` (or both). Ties never produce edges
-    between cells at the same pseudotime.
+    and pseudotime levels are connected when within ``k`` levels. Ties never
+    produce edges between cells at the same pseudotime.
     """
 
     node_ids_t, n, pairs = _table_to_forward_pairs(
@@ -115,7 +74,6 @@ def construct_pseudotime_graph_from_table(
         cell_col=cell_col,
         adata=adata,
         k=k,
-        delta=delta,
     )
     return PseudotimeGraph(node_ids=node_ids_t, adjacency=_pairs_to_csr(n, pairs, symmetric=True))
 
@@ -170,23 +128,18 @@ def _table_to_forward_pairs(
     pseudotime_col: str,
     cell_col: str,
     adata: Any,
-    k: int | None,
-    delta: float | None,
+    k: int,
 ) -> tuple[tuple[str, ...], int, list[tuple[np.ndarray, np.ndarray]]]:
     """Group a (branch, pseudotime, cell_id) table into forward (i -> j) edge pairs.
 
     Within each branch, cells are bucketed by pseudotime value, levels are sorted,
-    and each level is linked to levels within ±k positions and/or within numeric
-    distance ``delta``. Returned pairs are directed from earlier to later pseudotime
-    (cells sharing a pseudotime value never produce an edge to each other).
+    and each level is linked to levels within +k positions. Returned pairs are
+    directed from earlier to later pseudotime (cells sharing a pseudotime value
+    never produce an edge to each other).
     """
 
-    if k is None and delta is None:
-        raise ValueError("at least one of k or delta is required")
-    if k is not None and k < 1:
+    if k < 1:
         raise ValueError("k must be >= 1")
-    if delta is not None and delta < 0:
-        raise ValueError("delta must be >= 0")
 
     branch_vals = _column(table, branch_col)
     pt_vals = _column(table, pseudotime_col)
@@ -218,16 +171,9 @@ def _table_to_forward_pairs(
         L = len(levels)
         if L <= 1:
             continue
-        level_vals = np.asarray(levels, dtype=float) if delta is not None else None
 
         for i in range(L - 1):
-            end = i
-            if k is not None:
-                end = max(end, min(L - 1, i + k))
-            if level_vals is not None:
-                hi = int(np.searchsorted(level_vals, level_vals[i] + delta, side="right")) - 1
-                if hi > end:
-                    end = hi
+            end = min(L - 1, i + k)
             left = level_inds[i]
             if end <= i or left.size == 0:
                 continue
