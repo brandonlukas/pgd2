@@ -7,19 +7,14 @@ import scipy.sparse as sp
 import pgd2
 
 
-class DummyAdata:
-    def __init__(self, obs_names):
-        self.obs_names = obs_names
-
-
-def graph_from_branch(cells, *, k=1, adata=None):
+def graph_from_branch(cells, *, k=1, cell_ids=None):
     """Build a graph from one branch of ordered cells (pseudotime = position)."""
     table = {
         "branch": ["b1"] * len(cells),
         "pseudotime": list(range(len(cells))),
         "cell_id": list(cells),
     }
-    return pgd2.construct_pseudotime_graph_from_table(table, k=k, adata=adata)
+    return pgd2.construct_pseudotime_graph_from_table(table, k=k, cell_ids=cell_ids)
 
 
 def node_index(g):
@@ -31,10 +26,10 @@ def tiny_graph():
     return graph_from_branch(["c1", "c2"], k=1)
 
 
-def test_construct_graph_matches_adata_order():
-    adata = DummyAdata(["a", "b", "c", "d"])
-    g = graph_from_branch(["b", "c", "d"], k=1, adata=adata)
-    assert g.node_ids == tuple(adata.obs_names)
+def test_construct_graph_matches_cell_ids_order():
+    names = ["a", "b", "c", "d"]
+    g = graph_from_branch(["b", "c", "d"], k=1, cell_ids=names)
+    assert g.node_ids == tuple(names)
     assert g.adjacency.shape == (4, 4)
 
 
@@ -106,10 +101,9 @@ def test_construct_graph_rejects_invalid_k():
 
 
 def test_construct_graph_reports_unknown_cell():
-    adata = DummyAdata(["a", "b"])
     table = {"branch": ["b1", "b1"], "pseudotime": [0, 1], "cell_id": ["a", "missing"]}
     with pytest.raises(KeyError, match="missing"):
-        pgd2.construct_pseudotime_graph_from_table(table, adata=adata)
+        pgd2.construct_pseudotime_graph_from_table(table, cell_ids=["a", "b"])
 
 
 def test_transition_matrix_is_row_stochastic():
@@ -127,9 +121,8 @@ def test_aggregate_pseudotime_from_table_respects_backbone_selector():
         "pseudotime": [0.0, 1.0, 100.0, 101.0],
         "cell_id": ["c1", "c2", "c1", "c2"],
     }
-    adata = DummyAdata(["c1", "c2"])
     pt = pgd2.aggregate_pseudotime_from_table(
-        table, adata=adata, backbone_selector=lambda b: b == "backbone"
+        table, cell_ids=["c1", "c2"], backbone_selector=lambda b: b == "backbone"
     )
     assert pt.shape == (2,)
     assert float(pt[0]) <= float(pt[1])
@@ -141,9 +134,10 @@ def test_aggregate_pseudotime_from_table_warns_on_unreachable():
         "pseudotime": [0.0, 1.0, 0.0, 1.0],
         "cell_id": ["c1", "c2", "c3", "c4"],
     }
-    adata = DummyAdata(["c1", "c2", "c3", "c4"])
     with pytest.warns(UserWarning, match="unreachable from root"):
-        pt = pgd2.aggregate_pseudotime_from_table(table, adata=adata, root_cell="c1")
+        pt = pgd2.aggregate_pseudotime_from_table(
+            table, cell_ids=["c1", "c2", "c3", "c4"], root_cell="c1"
+        )
     assert float(pt[2]) == 1.0
     assert float(pt[3]) == 1.0
 
@@ -154,10 +148,9 @@ def test_aggregate_pseudotime_from_table_no_warning_when_all_reachable():
         "pseudotime": [0.0, 0.5, 1.0],
         "cell_id": ["c1", "c2", "c3"],
     }
-    adata = DummyAdata(["c1", "c2", "c3"])
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        pgd2.aggregate_pseudotime_from_table(table, adata=adata, root_cell="c1")
+        pgd2.aggregate_pseudotime_from_table(table, cell_ids=["c1", "c2", "c3"], root_cell="c1")
 
 
 def test_diffuse_features_accepts_property_style_kernel():

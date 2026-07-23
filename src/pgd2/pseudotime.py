@@ -13,6 +13,7 @@ Dijkstra from the root, and min-max scales distances to [0, 1].
 from __future__ import annotations
 
 import warnings
+from collections.abc import Sequence
 from typing import Any, Callable
 
 import numpy as np
@@ -24,7 +25,7 @@ from .graph import _column, _pairs_to_csr, _table_to_forward_pairs
 def aggregate_pseudotime_from_table(
     table: Any,
     *,
-    adata: Any,
+    cell_ids: Sequence[str],
     branch_col: str = "branch",
     pseudotime_col: str = "pseudotime",
     cell_col: str = "cell_id",
@@ -34,20 +35,24 @@ def aggregate_pseudotime_from_table(
 ) -> np.ndarray:
     """Compute one canonical pseudotime value per cell from a multi-branch table.
 
-    Pseudotime is returned in ``adata.obs_names`` order. Root selection priority:
-    explicit ``root_cell`` → backbone row with minimum pseudotime
-    (via ``backbone_selector``) → globally minimum-pseudotime row.
+    Pseudotime is returned in ``cell_ids`` order (pass ``adata.obs_names`` in a
+    scanpy workflow). Root selection priority: explicit ``root_cell`` → backbone
+    row with minimum pseudotime (via ``backbone_selector``) → globally
+    minimum-pseudotime row.
     """
 
-    if adata is None:
-        raise TypeError("adata is required so pseudotime aligns to adata.obs_names")
+    if cell_ids is None:
+        raise TypeError(
+            "cell_ids is required so pseudotime aligns to your cell ordering "
+            "(pass adata.obs_names or the embedding's cell_ids)"
+        )
 
     node_ids_t, n, pairs = _table_to_forward_pairs(
         table,
         branch_col=branch_col,
         pseudotime_col=pseudotime_col,
         cell_col=cell_col,
-        adata=adata,
+        cell_ids=cell_ids,
         k=k,
     )
     A_dir = _pairs_to_csr(n, pairs, symmetric=False)
@@ -71,7 +76,7 @@ def aggregate_pseudotime_from_table(
     if root_idx is None:
         raise KeyError(
             f"root_cell '{root_cell}' is not in graph node_ids; "
-            "check adata.obs_names / table cell IDs"
+            "check cell_ids / table cell IDs"
         )
 
     dist = np.asarray(

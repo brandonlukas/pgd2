@@ -8,6 +8,7 @@ axis.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -43,7 +44,7 @@ class Dendrogram:
 def dendrogram_from_table(
     table: Any,
     *,
-    adata: Any = None,
+    cell_ids: Sequence[str] | None = None,
     pseudotime: dict[str, float] | None = None,
     branch_col: str = "branch",
     cell_col: str = "cell_id",
@@ -61,7 +62,7 @@ def dendrogram_from_table(
     beside their segment's spine.
 
     ``pseudotime`` is a dict ``cell_id -> value``; if omitted it is computed with
-    :func:`~pgd2.aggregate_pseudotime_from_table` (which needs ``adata`` and accepts
+    :func:`~pgd2.aggregate_pseudotime_from_table` (which needs ``cell_ids`` and accepts
     ``root_cell`` / ``backbone_selector`` via ``pt_kwargs``).
 
     ponytail: nearest-lower-pseudotime parent assignment -- fine for a trunk with one
@@ -76,7 +77,7 @@ def dendrogram_from_table(
         membership.setdefault(c, set()).add(b)
     cells = list(membership.keys())
 
-    pt = _resolve_pseudotime(pseudotime, table, adata, cells, branch_col, cell_col, pt_kwargs)
+    pt = _resolve_pseudotime(pseudotime, table, cell_ids, cells, branch_col, cell_col, pt_kwargs)
 
     cell_seg = {c: tuple(sorted(membership[c])) for c in cells}
     segments = sorted(set(cell_seg.values()))
@@ -106,12 +107,12 @@ def dendrogram_from_table(
     )
 
 
-def _resolve_pseudotime(pseudotime, table, adata, cells, branch_col, cell_col, pt_kwargs):
+def _resolve_pseudotime(pseudotime, table, cell_ids, cells, branch_col, cell_col, pt_kwargs):
     if pseudotime is None:
         pt_arr = aggregate_pseudotime_from_table(
-            table, adata=adata, branch_col=branch_col, cell_col=cell_col, **pt_kwargs
+            table, cell_ids=cell_ids, branch_col=branch_col, cell_col=cell_col, **pt_kwargs
         )
-        obs = [str(c) for c in adata.obs_names]
+        obs = [str(c) for c in cell_ids]
         return {c: float(v) for c, v in zip(obs, pt_arr, strict=True)}
     if isinstance(pseudotime, dict):
         return {str(k): float(v) for k, v in pseudotime.items()}

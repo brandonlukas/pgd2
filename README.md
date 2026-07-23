@@ -8,9 +8,9 @@ A lightweight Python implementation of **Pseudotime Graph Diffusion (PGD)** (IEE
 pip install -e .
 ```
 
-`pgd2` depends only on NumPy and SciPy. It interoperates with AnnData and pandas
-by duck typing, so if you want those (or plotting libraries), install them
-yourself — `pgd2` will not pull them in.
+`pgd2` depends only on NumPy and SciPy. It reads pandas/dict tables by duck typing
+and returns plain NumPy/SciPy arrays, so bring your own AnnData and plotting
+libraries — `pgd2` will not pull them in.
 
 ## Quickstart
 
@@ -32,11 +32,9 @@ import pgd2
 df = pd.read_csv("data/macrophages.tsv", sep="\t")
 emb = np.load("data/macrophages_embedding.npz", allow_pickle=True)
 
-graph = pgd2.construct_pseudotime_graph_from_table(df, k=50)
-
-# diffuse_features needs X row-aligned to graph.node_ids; the bundled embedding
-# is stored in that order already (pass adata=... to align to adata.obs_names instead).
-assert list(emb["cell_ids"]) == list(graph.node_ids)
+# cell_ids fixes the node order so the embedding rows line up with graph.node_ids.
+# In a scanpy workflow pass cell_ids=adata.obs_names and diffuse adata.obsm[...].
+graph = pgd2.construct_pseudotime_graph_from_table(df, cell_ids=emb["cell_ids"], k=50)
 X_smooth = pgd2.diffuse_features(emb["X_pca"], graph, alpha=0.5, t=1)
 
 # Or pass a transition matrix directly (e.g., from CellRank).
@@ -47,15 +45,10 @@ X_smooth2 = pgd2.diffuse_features(emb["X_pca"], P, alpha=0.5, t=1)
 If each cell appears on multiple branches and you want a single canonical pseudotime per cell (auxiliary; not paper-method):
 
 ```python
-from types import SimpleNamespace
-
-# aggregate_pseudotime_from_table aligns output to adata.obs_names; any object
-# exposing .obs_names works (AnnData is duck-typed). Use your AnnData in practice.
-adata = SimpleNamespace(obs_names=list(emb["cell_ids"]))
-
+# Output is returned in cell_ids order (pass adata.obs_names in a scanpy workflow).
 pt = pgd2.aggregate_pseudotime_from_table(
     df,
-    adata=adata,
+    cell_ids=emb["cell_ids"],
     backbone_selector=lambda b: str(b).startswith("backbone"),
 )
 ```
@@ -68,7 +61,7 @@ This builds a directed graph, runs unweighted Dijkstra from a backbone-rooted ce
 x = branch position) from their overlapping-lineage membership — no embedding needed.
 
 ```python
-d = pgd2.dendrogram_from_table(df, adata=adata,
+d = pgd2.dendrogram_from_table(df, cell_ids=emb["cell_ids"],
                                backbone_selector=lambda b: str(b).startswith("backbone"))
 # d.coords (x, y per cell), d.lines (tree spine segments) — plot with your own library
 ```

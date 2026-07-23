@@ -57,7 +57,7 @@ def construct_pseudotime_graph_from_table(
     branch_col: str = "branch",
     pseudotime_col: str = "pseudotime",
     cell_col: str = "cell_id",
-    adata: Any = None,
+    cell_ids: Sequence[str] | None = None,
     k: int = 50,
 ) -> PseudotimeGraph:
     """Build a pseudotime graph from a long-form (branch, pseudotime, cell_id) table.
@@ -65,6 +65,10 @@ def construct_pseudotime_graph_from_table(
     Within each branch, cells are grouped by identical pseudotime values (ties)
     and pseudotime levels are connected when within ``k`` levels. Ties never
     produce edges between cells at the same pseudotime.
+
+    ``cell_ids`` fixes the node order (rows of any feature matrix you later diffuse
+    must match it); pass ``adata.obs_names`` in a scanpy workflow. If omitted, node
+    order follows first appearance in ``table``.
     """
 
     node_ids_t, n, pairs = _table_to_forward_pairs(
@@ -72,19 +76,16 @@ def construct_pseudotime_graph_from_table(
         branch_col=branch_col,
         pseudotime_col=pseudotime_col,
         cell_col=cell_col,
-        adata=adata,
+        cell_ids=cell_ids,
         k=k,
     )
     return PseudotimeGraph(node_ids=node_ids_t, adjacency=_pairs_to_csr(n, pairs, symmetric=True))
 
 
-def _resolve_node_ids(adata: Any, fallback: Sequence[str]) -> list[str]:
-    if adata is None:
+def _resolve_node_ids(cell_ids: Sequence[str] | None, fallback: Sequence[str]) -> list[str]:
+    if cell_ids is None:
         return list(dict.fromkeys(fallback))
-    obs_names = getattr(adata, "obs_names", None)
-    if obs_names is None:
-        raise TypeError("adata must have .obs_names (AnnData-like)")
-    return list(obs_names)
+    return [str(c) for c in cell_ids]
 
 
 def _pairs_to_csr(
@@ -127,7 +128,7 @@ def _table_to_forward_pairs(
     branch_col: str,
     pseudotime_col: str,
     cell_col: str,
-    adata: Any,
+    cell_ids: Sequence[str] | None,
     k: int,
 ) -> tuple[tuple[str, ...], int, list[tuple[np.ndarray, np.ndarray]]]:
     """Group a (branch, pseudotime, cell_id) table into forward (i -> j) edge pairs.
@@ -148,7 +149,7 @@ def _table_to_forward_pairs(
         raise ValueError("table columns must have the same length")
 
     cell_strs = [str(c) for c in cell_vals.tolist()]
-    node_ids = _resolve_node_ids(adata, cell_strs)
+    node_ids = _resolve_node_ids(cell_ids, cell_strs)
     node_ids_t = tuple(node_ids)
     idx = {cid: i for i, cid in enumerate(node_ids_t)}
     n = len(node_ids_t)
@@ -160,7 +161,7 @@ def _table_to_forward_pairs(
         except KeyError:
             raise KeyError(
                 f"Cell '{cid_s}' from branch '{b}' is not in node_ids "
-                "(check adata.obs_names if provided)"
+                "(check cell_ids if provided)"
             ) from None
         by_branch.setdefault(b, {}).setdefault(pt, []).append(i)
 
