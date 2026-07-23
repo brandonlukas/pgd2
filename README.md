@@ -2,6 +2,14 @@
 
 A lightweight Python implementation of **Pseudotime Graph Diffusion (PGD)** (IEEE).
 
+<p align="center">
+  <img src="figures/hero.gif" width="520"
+       alt="An original UMAP blob morphing into the PGD-smoothed branching trajectory, cells colored by pseudotime">
+</p>
+
+PGD smooths an embedding along an inferred trajectory graph, resolving a tangled
+UMAP blob into clean branches (above: the two endpoints, cells colored by pseudotime).
+
 ## Install
 
 ```bash
