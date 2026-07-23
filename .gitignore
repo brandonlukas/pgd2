@@ -42,6 +42,8 @@ docs/_build/
 # figures/
 
 # Large data artifacts (optional; remove if you want these committed)
-# data/*.h5ad
-# data/*.h5
-# data/*.loom
+data/*.h5ad
+data/*.h5
+data/*.loom
+# Unused example table (data/lamian_nc_5.tsv is the one the README uses)
+data/lamian_nc_9.tsv
