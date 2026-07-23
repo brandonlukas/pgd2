@@ -17,11 +17,6 @@ import numpy as np
 from .graph import _column
 from .pseudotime import aggregate_pseudotime_from_table
 
-__all__ = [
-    "Dendrogram",
-    "dendrogram_from_table",
-]
-
 
 @dataclass
 class Dendrogram:
