@@ -34,7 +34,7 @@ emb = np.load("data/macrophages_embedding.npz", allow_pickle=True)
 
 # cell_ids fixes the node order so the embedding rows line up with graph.node_ids.
 # In a scanpy workflow pass cell_ids=adata.obs_names and diffuse adata.obsm[...].
-graph = pgd2.construct_pseudotime_graph_from_table(df, cell_ids=emb["cell_ids"], k=50)
+graph = pgd2.pseudotime_graph_from_table(df, cell_ids=emb["cell_ids"], k=50)
 X_smooth = pgd2.diffuse_features(emb["X_pca"], graph, alpha=0.5, t=1)
 
 # Or pass a transition matrix directly (e.g., from CellRank).
@@ -90,7 +90,7 @@ point sets must be in the same cell order.
 Public exports (see docstrings via `help(pgd2.<name>)`):
 
 - `pgd2.PseudotimeGraph`
-- `pgd2.construct_pseudotime_graph_from_table`
+- `pgd2.pseudotime_graph_from_table`
 - `pgd2.aggregate_pseudotime_from_table`
 - `pgd2.diffuse_features`
 - `pgd2.dendrogram_from_table`

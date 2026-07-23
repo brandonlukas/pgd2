@@ -51,7 +51,7 @@ class PseudotimeGraph:
         return P
 
 
-def construct_pseudotime_graph_from_table(
+def pseudotime_graph_from_table(
     table: Any,
     *,
     branch_col: str = "branch",

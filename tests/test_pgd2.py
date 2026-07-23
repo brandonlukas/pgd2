@@ -14,7 +14,7 @@ def graph_from_branch(cells, *, k=1, cell_ids=None):
         "pseudotime": list(range(len(cells))),
         "cell_id": list(cells),
     }
-    return pgd2.construct_pseudotime_graph_from_table(table, k=k, cell_ids=cell_ids)
+    return pgd2.pseudotime_graph_from_table(table, k=k, cell_ids=cell_ids)
 
 
 def node_index(g):
@@ -60,7 +60,7 @@ def test_construct_graph_from_table_preserves_ties():
         "cell_id": ["c1", "c2", "c3"],
     }
 
-    g = pgd2.construct_pseudotime_graph_from_table(table, k=1)
+    g = pgd2.pseudotime_graph_from_table(table, k=1)
     A = g.adjacency.tocsr()
     i = node_index(g)
 
@@ -97,13 +97,13 @@ def test_diffuse_features_rejects_shape_mismatch(tiny_graph):
 def test_construct_graph_rejects_invalid_k():
     table = {"branch": ["b1", "b1"], "pseudotime": [0, 1], "cell_id": ["c1", "c2"]}
     with pytest.raises(ValueError, match="k must be"):
-        pgd2.construct_pseudotime_graph_from_table(table, k=0)
+        pgd2.pseudotime_graph_from_table(table, k=0)
 
 
 def test_construct_graph_reports_unknown_cell():
     table = {"branch": ["b1", "b1"], "pseudotime": [0, 1], "cell_id": ["a", "missing"]}
     with pytest.raises(KeyError, match="missing"):
-        pgd2.construct_pseudotime_graph_from_table(table, cell_ids=["a", "b"])
+        pgd2.pseudotime_graph_from_table(table, cell_ids=["a", "b"])
 
 
 def test_transition_matrix_is_row_stochastic():

@@ -7,7 +7,7 @@ window along pseudotime, then smooth features with a lazy random walk:
 """
 
 from .diffusion import diffuse_features
-from .graph import PseudotimeGraph, construct_pseudotime_graph_from_table
+from .graph import PseudotimeGraph, pseudotime_graph_from_table
 from .layout import Dendrogram, dendrogram_from_table
 from .pseudotime import aggregate_pseudotime_from_table
 
@@ -15,7 +15,7 @@ __all__ = [
     "Dendrogram",
     "PseudotimeGraph",
     "aggregate_pseudotime_from_table",
-    "construct_pseudotime_graph_from_table",
+    "pseudotime_graph_from_table",
     "dendrogram_from_table",
     "diffuse_features",
 ]
