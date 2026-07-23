@@ -23,7 +23,11 @@ def diffuse_features(
       - a row-stochastic matrix P aligned to ``X``'s rows (dense or sparse).
 
     If you pass a raw matrix that isn't row-stochastic, row-normalize it first.
-    Returns the same type as ``X`` (numpy array or scipy sparse matrix).
+
+    Return type: a numpy array in, a numpy array out. A sparse ``X`` stays sparse
+    only when ``P`` is also sparse -- which it always is from a ``PseudotimeGraph``
+    or any ``.transition_matrix``. The one mixed case, a dense ``P`` with a sparse
+    ``X``, comes back as a numpy array, so pass a sparse ``P`` to keep ``X`` sparse.
     """
 
     if not 0.0 <= alpha <= 1.0:
