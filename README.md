@@ -56,6 +56,25 @@ d = pgd2.dendrogram_from_table(df, adata=adata,
 # d.coords (x, y per cell), d.lines (tree spine segments) — plot with your own library
 ```
 
+## Tip: comparing an embedding before and after smoothing
+
+When you plot the original embedding beside the PGD-smoothed one (or animate a
+morph between them), the smoothed cloud is often rotated or reflected relative to
+the original, so the two don't line up. Align them with an orthogonal Procrustes
+fit — `scipy` (already a dependency) ships it, no `pgd2` helper needed:
+
+```python
+from scipy.linalg import orthogonal_procrustes
+
+A = original - original.mean(0)     # e.g. adata.obsm["X_umap"]
+B = smoothed - smoothed.mean(0)     # UMAP of the diffused features, same cell order
+R, _ = orthogonal_procrustes(B, A)  # best rotation/reflection of B onto A
+B_aligned = B @ R
+```
+
+Now cells slide into their branches instead of the whole cloud spinning. Both
+point sets must be in the same cell order.
+
 ## API surface
 
 Public exports (see docstrings via `help(pgd2.<name>)`):
