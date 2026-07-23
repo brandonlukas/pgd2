@@ -26,7 +26,7 @@ def tiny_graph():
     return graph_from_branch(["c1", "c2"], k=1)
 
 
-def test_construct_graph_matches_cell_ids_order():
+def test_pseudotime_graph_matches_cell_ids_order():
     names = ["a", "b", "c", "d"]
     g = graph_from_branch(["b", "c", "d"], k=1, cell_ids=names)
     assert g.node_ids == tuple(names)
@@ -52,7 +52,7 @@ def test_diffusion_runs_dense_and_sparse():
     assert Xsp_s2.shape == Xsp.shape
 
 
-def test_construct_graph_from_table_preserves_ties():
+def test_pseudotime_graph_from_table_preserves_ties():
     # Two cells share pseudotime=0; we should not have to arbitrarily order them.
     table = {
         "branch": ["b1", "b1", "b1"],
@@ -94,13 +94,13 @@ def test_diffuse_features_rejects_shape_mismatch(tiny_graph):
         pgd2.diffuse_features(X, tiny_graph, alpha=0.5, t=1)
 
 
-def test_construct_graph_rejects_invalid_k():
+def test_pseudotime_graph_rejects_invalid_k():
     table = {"branch": ["b1", "b1"], "pseudotime": [0, 1], "cell_id": ["c1", "c2"]}
     with pytest.raises(ValueError, match="k must be"):
         pgd2.pseudotime_graph_from_table(table, k=0)
 
 
-def test_construct_graph_reports_unknown_cell():
+def test_pseudotime_graph_reports_unknown_cell():
     table = {"branch": ["b1", "b1"], "pseudotime": [0, 1], "cell_id": ["a", "missing"]}
     with pytest.raises(KeyError, match="missing"):
         pgd2.pseudotime_graph_from_table(table, cell_ids=["a", "b"])
