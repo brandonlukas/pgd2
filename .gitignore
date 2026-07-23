@@ -45,5 +45,5 @@ docs/_build/
 data/*.h5ad
 data/*.h5
 data/*.loom
-# Unused example table (data/lamian_nc_5.tsv is the one the README uses)
+# Unused example table (data/macrophages.tsv is the one the README uses)
 data/lamian_nc_9.tsv
