@@ -66,6 +66,23 @@ d = pgd2.dendrogram_from_table(df, cell_ids=emb["cell_ids"],
 # d.coords (x, y per cell), d.lines (tree spine segments) — plot with your own library
 ```
 
+## Evaluating an embedding
+
+`pseudotime_smoothness` scores how smoothly pseudotime varies over an embedding's
+kNN graph — `1 - Geary's C`, so 1.0 is a perfect gradient and ~0 is random. Any
+dimensionality works: a 2-D UMAP, a 3-D layout, or the smoothed PCs themselves.
+
+```python
+pt = pgd2.aggregate_pseudotime_from_table(df, cell_ids=emb["cell_ids"], ...)
+pgd2.pseudotime_smoothness(emb["X_umap"], pt, k=15)   # 0.835
+pgd2.pseudotime_smoothness(X_smooth, pt, k=15)        # 0.988 (diffused X_pca)
+```
+
+Compare embeddings of the same cells at the same `k`. For the complementary
+question — do original-space neighbors survive into the embedding — use
+[`sklearn.manifold.trustworthiness`](https://scikit-learn.org/stable/modules/generated/sklearn.manifold.trustworthiness.html);
+`pgd2` deliberately does not reimplement or wrap it.
+
 ## Tip: comparing an embedding before and after smoothing
 
 When you plot the original embedding beside the PGD-smoothed one (or animate a

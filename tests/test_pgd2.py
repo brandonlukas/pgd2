@@ -192,3 +192,24 @@ def test_dendrogram_from_table_derives_trunk_and_split():
     assert d.cell_segments[i0] == trunk
     # skeleton starts at the trunk root (pt 0) and squares off at the branchpoint
     assert (d.lines[:, 1].min() == 0.0) and (0.3 in d.lines[:, 1])
+
+
+def test_pseudotime_smoothness_ranks_ordered_above_shuffled():
+    rng = np.random.default_rng(0)
+    pt = np.linspace(0, 1, 200)
+    # a 1-D gradient laid out along x, with noise in y
+    X = np.column_stack([pt, rng.normal(scale=0.01, size=pt.size)])
+
+    smooth = pgd2.pseudotime_smoothness(X, pt, k=5)
+    shuffled = pgd2.pseudotime_smoothness(X, rng.permutation(pt), k=5)
+    assert smooth > 0.9
+    assert abs(shuffled) < 0.3
+
+    # works in any dimensionality, not just 2-D
+    X3 = np.column_stack([X, rng.normal(scale=0.01, size=pt.size)])
+    assert pgd2.pseudotime_smoothness(X3, pt, k=5) > 0.9
+
+    with pytest.raises(ValueError):
+        pgd2.pseudotime_smoothness(X, pt[:10])
+    with pytest.raises(ValueError):
+        pgd2.pseudotime_smoothness(X, np.zeros_like(pt))
