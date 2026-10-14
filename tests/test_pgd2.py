@@ -75,6 +75,33 @@ def test_pseudotime_graph_from_table_preserves_ties():
     assert A[i["c2"], i["c1"]] == 0
 
 
+@pytest.mark.parametrize("k", [1, 2, 5])
+def test_pseudotime_graph_matches_brute_force(k):
+    # Random branches with heavy ties and cells repeated within/across branches,
+    # checked against the definition: within a branch, link every cell to every
+    # cell 1..k pseudotime levels later.
+    rng = np.random.default_rng(k)
+    n, rows = 40, 150
+    table = {
+        "branch": rng.choice(["b1", "b2", "b3"], size=rows).tolist(),
+        "pseudotime": rng.integers(0, 12, size=rows).tolist(),
+        "cell_id": [f"c{i}" for i in rng.integers(0, n, size=rows)],
+    }
+    cell_ids = [f"c{i}" for i in range(n)]
+    A = pgd2.pseudotime_graph_from_table(table, cell_ids=cell_ids, k=k).adjacency.toarray()
+
+    ref = np.zeros((n, n))
+    for b in set(table["branch"]):
+        mine = [r for r in range(rows) if table["branch"][r] == b]
+        rank = {v: i for i, v in enumerate(sorted({table["pseudotime"][r] for r in mine}))}
+        for r in mine:
+            for s in mine:
+                if 1 <= rank[table["pseudotime"][s]] - rank[table["pseudotime"][r]] <= k:
+                    i, j = cell_ids.index(table["cell_id"][r]), cell_ids.index(table["cell_id"][s])
+                    ref[i, j] = ref[j, i] = 1
+    np.testing.assert_array_equal(A, ref)
+
+
 @pytest.mark.parametrize("alpha", [-0.1, 1.1])
 def test_diffuse_features_rejects_alpha_out_of_range(tiny_graph, alpha):
     X = np.zeros((tiny_graph.n_nodes, 1))

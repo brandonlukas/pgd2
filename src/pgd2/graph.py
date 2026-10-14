@@ -154,34 +154,37 @@ def _table_to_forward_pairs(
     idx = {cid: i for i, cid in enumerate(node_ids_t)}
     n = len(node_ids_t)
 
-    by_branch: dict[Any, dict[Any, list[int]]] = {}
-    for b, pt, cid_s in zip(branch_vals.tolist(), pt_vals.tolist(), cell_strs, strict=True):
+    cells = np.empty(len(cell_strs), dtype=np.int64)
+    rows_by_branch: dict[Any, list[int]] = {}
+    for r, (b, cid_s) in enumerate(zip(branch_vals.tolist(), cell_strs, strict=True)):
         try:
-            i = idx[cid_s]
+            cells[r] = idx[cid_s]
         except KeyError:
             raise KeyError(
                 f"Cell '{cid_s}' from branch '{b}' is not in node_ids "
                 "(check cell_ids if provided)"
             ) from None
-        by_branch.setdefault(b, {}).setdefault(pt, []).append(i)
+        rows_by_branch.setdefault(b, []).append(r)
 
+    # Vectorized per branch (a Python loop per level pair took ~30 s on 1e5 cells):
+    # sort the branch's cells into pseudotime levels, then for each offset d = 1..k
+    # emit every (level l, level l + d) cell pair in one cartesian-product step.
     pairs: list[tuple[np.ndarray, np.ndarray]] = []
-    for pt_to_inds in by_branch.values():
-        levels = sorted(pt_to_inds.keys())
-        level_inds = [np.asarray(pt_to_inds[pt], dtype=np.int64) for pt in levels]
-        L = len(levels)
-        if L <= 1:
-            continue
-
-        for i in range(L - 1):
-            end = min(L - 1, i + k)
-            left = level_inds[i]
-            if end <= i or left.size == 0:
-                continue
-            for j in range(i + 1, end + 1):
-                right = level_inds[j]
-                if right.size == 0:
-                    continue
-                pairs.append((np.repeat(left, right.size), np.tile(right, left.size)))
+    for rows in rows_by_branch.values():
+        rows = np.asarray(rows)
+        _, level = np.unique(pt_vals[rows], return_inverse=True)
+        members = cells[rows][np.argsort(level, kind="stable")]  # grouped by level, ascending
+        size = np.bincount(level)                                  # cells per level
+        start = np.cumsum(size) - size                             # first member of each level
+        L = size.size
+        for d in range(1, min(k, L - 1) + 1):
+            lo = np.arange(L - d)
+            n_pairs = size[lo] * size[lo + d]
+            left = np.repeat(lo, n_pairs)                          # left level of each pair
+            pos = np.arange(n_pairs.sum()) - np.repeat(np.cumsum(n_pairs) - n_pairs, n_pairs)
+            width = size[left + d]
+            pairs.append(
+                (members[start[left] + pos // width], members[start[left + d] + pos % width])
+            )
 
     return node_ids_t, n, pairs
