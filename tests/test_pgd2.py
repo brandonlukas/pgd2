@@ -75,16 +75,17 @@ def test_pseudotime_graph_from_table_preserves_ties():
     assert A[i["c2"], i["c1"]] == 0
 
 
+@pytest.mark.parametrize("ties", [True, False])
 @pytest.mark.parametrize("k", [1, 2, 5])
-def test_pseudotime_graph_matches_brute_force(k):
-    # Random branches with heavy ties and cells repeated within/across branches,
-    # checked against the definition: within a branch, link every cell to every
-    # cell 1..k pseudotime levels later.
+def test_pseudotime_graph_matches_brute_force(k, ties):
+    # Random branches, with heavy pseudotime ties or none (the builder's two paths),
+    # and cells repeated within/across branches, checked against the definition:
+    # within a branch, link every cell to every cell 1..k pseudotime levels later.
     rng = np.random.default_rng(k)
     n, rows = 40, 150
     table = {
         "branch": rng.choice(["b1", "b2", "b3"], size=rows).tolist(),
-        "pseudotime": rng.integers(0, 12, size=rows).tolist(),
+        "pseudotime": (rng.integers(0, 12, size=rows) if ties else rng.permutation(rows)).tolist(),
         "cell_id": [f"c{i}" for i in rng.integers(0, n, size=rows)],
     }
     cell_ids = [f"c{i}" for i in range(n)]

@@ -169,6 +169,8 @@ def _table_to_forward_pairs(
     # Vectorized per branch (a Python loop per level pair took ~30 s on 1e5 cells):
     # sort the branch's cells into pseudotime levels, then for each offset d = 1..k
     # emit every (level l, level l + d) cell pair in one cartesian-product step.
+    # Without ties (one cell per level, e.g. cells ordered by position) those pairs
+    # are just two slices of the ordering.
     pairs: list[tuple[np.ndarray, np.ndarray]] = []
     for rows in rows_by_branch.values():
         rows = np.asarray(rows)
@@ -177,6 +179,9 @@ def _table_to_forward_pairs(
         size = np.bincount(level)                                  # cells per level
         start = np.cumsum(size) - size                             # first member of each level
         L = size.size
+        if L == rows.size:
+            pairs.extend((members[:-d], members[d:]) for d in range(1, min(k, L - 1) + 1))
+            continue
         for d in range(1, min(k, L - 1) + 1):
             lo = np.arange(L - d)
             n_pairs = size[lo] * size[lo + d]
